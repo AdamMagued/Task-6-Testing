@@ -44,6 +44,40 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs the item fields and navigates to /items', async () => {
+    const user = userEvent.setup()
+    api.post.mockResolvedValue({ data: { item: {} } })
+    renderAt('/items/new')
+
+    await user.type(screen.getByPlaceholderText(/title/i), 'Blue water bottle')
+    await user.selectOptions(screen.getAllByRole('combobox')[0], 'found')
+    await user.selectOptions(screen.getAllByRole('combobox')[1], 'electronics')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Engineering building')
+    await user.type(screen.getByPlaceholderText(/description/i), 'Near the main entrance')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Blue water bottle',
+      status: 'found',
+      category: 'electronics',
+      location: 'Engineering building',
+      description: 'Near the main entrance'
+    })
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+  })
+
+  test('shows the server error and stays on the form when saving fails', async () => {
+    const user = userEvent.setup()
+    api.post.mockRejectedValue({
+      response: { data: { message: 'Duplicate item at this location' } }
+    })
+    renderAt('/items/new')
+
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument()
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+  })
 })

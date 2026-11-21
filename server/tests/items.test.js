@@ -33,6 +33,32 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+  test('POST returns 409 when the same title is reported at the same location twice', async () => {
+    const token = await registerAndGetToken();
+    const body = { title: 'Lost keys', status: 'lost', category: 'other', location: 'Cafeteria' };
+
+    const first = await request(app)
+      .post('/api/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send(body);
+    expect(first.status).toBe(201);
+
+    const duplicate = await request(app)
+      .post('/api/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send(body);
+    expect(duplicate.status).toBe(409);
+  });
+
+  test('PATCH returns 403 when someone who is not the reporter edits the item', async () => {
+    const reporterToken = await registerAndGetToken('Alice', 'alice@test.com');
+    const otherToken = await registerAndGetToken('Bob', 'bob@test.com');
+    const item = await createItem(reporterToken);
+
+    const res = await request(app)
+      .patch(`/api/items/${item._id}`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ title: 'Changed backpack' });
+    expect(res.status).toBe(403);
+  });
 });
